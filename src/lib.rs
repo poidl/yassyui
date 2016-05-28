@@ -68,7 +68,7 @@ impl Descriptor {
     }
 }
 
-static S: &'static [u8] = b"http://example.org/yassy#ui\0";
+static S: &'static [u8] = b"http://example.org/yassyui\0";
 
 static mut desc: lv2::LV2UIDescriptor = lv2::LV2UIDescriptor {
     uri: 0 as *const libc::c_char, // ptr::null() isn't const fn (yet)

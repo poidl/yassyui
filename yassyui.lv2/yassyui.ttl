@@ -5,14 +5,15 @@
 @prefix midi:  <http://lv2plug.in/ns/ext/midi#> .
 @prefix ui:    <http://lv2plug.in/ns/extensions/ui#> .
 
-
 <http://example.org/yassyui>
-	a  ui:X11UI ;
+	a ui:X11UI ;
 	lv2:project <http://example.org> ;
 	doap:name "yassy gui" ;
-	lv2:requiredFeature urid:map ;
+        lv2:requiredFeature urid:map, ui:idleInterface ;
+        lv2:extensionData ui:idleInterface ;        
         ui:portNotification [
                 ui:plugin <http://example.org/yassy> ;
                 lv2:symbol "gain" ;
                 ui:protocol ui:floatProtocol
         ] .
+        

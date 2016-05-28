@@ -10,6 +10,6 @@ if [ -d "$DEST" ]; then
     mv $DEST $BACKUPDIR/$BUNDLE
 fi
 cp -r $BUNDLE $LV2DIR
-# cp -r $BUNDLE/* $LV2DIR/yassy.lv2/
+cp -r $BUNDLE/* $LV2DIR/yassyui.lv2/
 cp target/debug/$SONAME $DEST
-cp target/debug/$SONAME $DEST/../yassy.lv2/
+# cp target/debug/$SONAME $DEST/../yassy.lv2/
