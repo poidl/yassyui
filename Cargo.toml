@@ -1,0 +1,12 @@
+[package]
+name = "yassyui"
+version = "0.1.0"
+authors = ["poidl <hoitaus@gmail.com>"]
+
+[dependencies]
+libc = "*"
+lv2 = { path = "../lv2" }
+
+[lib]
+name = "yassyui"
+crate-type = ["rlib","dylib"] # ?
