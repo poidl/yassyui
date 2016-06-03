@@ -4,16 +4,38 @@
 @prefix urid:  <http://lv2plug.in/ns/ext/urid#> .
 @prefix midi:  <http://lv2plug.in/ns/ext/midi#> .
 @prefix ui:    <http://lv2plug.in/ns/extensions/ui#> .
+@prefix kx:    <http://kxstudio.sf.net/ns/lv2ext/external-ui#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
 
-<http://example.org/yassyui>
-	a ui:X11UI ;
+# what is sord_validate? 
+# from: Hanspeter Portner
+# https://github.com/ventosus/customui.lv2/blob/master/manifest.ttl.in
+# to please sord_validate
+kx:Widget
+	a rdfs:Class, owl:Class ;
+	rdfs:subClassOf ui:UI .
+kx:Host
+	a lv2:Feature .
+
+<http://example.org/yassyui#ui>
+	a ui:UI ;
 	lv2:project <http://example.org> ;
-	doap:name "yassy gui" ;
-        lv2:requiredFeature urid:map, ui:idleInterface ;
-        lv2:extensionData ui:idleInterface ;        
+	doap:name "yassy gui ui" ;
+        lv2:requiredFeature ui:idleInterface ;
+        lv2:extensionData ui:idleInterface , ui:showInterface ;        
         ui:portNotification [
                 ui:plugin <http://example.org/yassy> ;
                 lv2:symbol "gain" ;
                 ui:protocol ui:floatProtocol
         ] .
         
+<http://example.org/yassyui#kx>
+	a kx:Widget ;
+	lv2:project <http://example.org> ;
+	doap:name "yassy gui kx" ;
+        lv2:requiredFeature kx:Host ;    
+        ui:portNotification [
+                ui:plugin <http://example.org/yassy> ;
+                lv2:symbol "gain" ;
+                ui:protocol ui:floatProtocol
+        ] .

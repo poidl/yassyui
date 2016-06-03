@@ -17,7 +17,7 @@ use std::ptr;
 struct Descriptor(lv2::LV2UIDescriptor);
 
 impl Descriptor {
-    pub extern "C" fn instantiate(_descriptor: *const lv2::LV2UIDescriptor,
+    pub extern "C" fn instantiate(descriptor: *const lv2::LV2UIDescriptor,
                                   plugin_uri: *const libc::c_char,
                                   bundle_path: *const libc::c_char,
                                   write_function: lv2::LV2UIWriteFunction,
@@ -27,14 +27,18 @@ impl Descriptor {
                                   -> lv2::LV2UIHandle {
         println!("host calls instantiate()");
         print_features(features);
-        // unsafe {
-        //     let hoit = gtk_box_new(1i8 as libc::c_int, 4i8 as libc::c_int);
-        //     let hoit = gtk_button_box_new(1i8 as libc::c_int);
-        //     *widget = hoit as  lv2::LV2UIWidget;
-        //     mem::forget(hoit);
-        // }
-        let bx = Box::new(yassyui::yassyui::new());
-
+        let mut bx = Box::new(yassyui::yassyui::new());
+        let uitype = unsafe { lv2::cstring((*descriptor).uri) };
+        println!("UITYPE: {}", uitype);
+        if uitype == "http://example.org/yassyui#kx" {
+            println!("MAPPING FEATURE FOR: {}", uitype);
+            let featureptr = lv2::mapfeature(features,
+                                             "http://kxstudio.sf.net/ns/lv2ext/external-ui#Host");
+            match featureptr {
+                Ok(fp) => bx.host = fp as *const lv2::LV2UIExternalUIHost,
+                _ => return ptr::null_mut(),
+            }
+        }
         let ptr = (&*bx as *const yassyui::yassyui) as *mut libc::c_void;
         mem::forget(bx);
         ptr
@@ -60,7 +64,7 @@ impl Descriptor {
             if s == "http://lv2plug.in/ns/extensions/ui#idleInterface" {
                 return &idleinterface as *const lv2::LV2UIIdleInterface as *const libc::c_void;
             } else if s == "http://lv2plug.in/ns/extensions/ui#showInterface" {
-                return &nullinterface as *const lv2::LV2UIIdleInterface as *const libc::c_void;
+                return &showinterface as *const lv2::LV2UIShowInterface as *const libc::c_void;
             }
 
             &nullinterface as *const lv2::LV2UIIdleInterface as *const libc::c_void
@@ -68,9 +72,9 @@ impl Descriptor {
     }
 }
 
-static S: &'static [u8] = b"http://example.org/yassyui\0";
+static SUI: &'static [u8] = b"http://example.org/yassyui#ui\0";
 
-static mut desc: lv2::LV2UIDescriptor = lv2::LV2UIDescriptor {
+static mut descUI: lv2::LV2UIDescriptor = lv2::LV2UIDescriptor {
     uri: 0 as *const libc::c_char, // ptr::null() isn't const fn (yet)
     instantiate: Descriptor::instantiate,
     cleanup: Descriptor::cleanup,
@@ -78,24 +82,54 @@ static mut desc: lv2::LV2UIDescriptor = lv2::LV2UIDescriptor {
     extension_data: Descriptor::extension_data,
 };
 
+static SKX: &'static [u8] = b"http://example.org/yassyui#kx\0";
+
+pub extern "C" fn nullfunction(arg: *const i8) -> *const libc::c_void {
+    ptr::null()
+}
+
+static mut descKX: lv2::LV2UIDescriptor = lv2::LV2UIDescriptor {
+    uri: 0 as *const libc::c_char, // ptr::null() isn't const fn (yet)
+    instantiate: Descriptor::instantiate,
+    cleanup: Descriptor::cleanup,
+    port_event: Descriptor::port_event,
+    extension_data: nullfunction,
+};
+
 static mut idleinterface: lv2::LV2UIIdleInterface = lv2::LV2UIIdleInterface { idle: ui_idle };
+static mut showinterface: lv2::LV2UIShowInterface = lv2::LV2UIShowInterface {
+    show: ui_show,
+    hide: ui_hide,
+};
 
 static mut nullinterface: lv2::LV2UIIdleInterface =
     lv2::LV2UIIdleInterface { idle: ui_nullfunction };
 
 #[no_mangle]
 pub extern "C" fn lv2ui_descriptor(index: i32) -> *const lv2::LV2UIDescriptor {
-    if index != 0 {
-        return std::ptr::null();
-    } else {
-        // credits to ker on stackoverflow:
-        // http://stackoverflow.com/questions/31334356/static-struct-with
-        // -c-strings-for-lv2-plugin (duplicate) or http://stackoverflow.com/questions/
-        // 25880043/creating-a-static-c-struct-containing-strings
-        let ptr = S.as_ptr() as *const libc::c_char;
-        unsafe {
-            desc.uri = ptr;
-            return &desc as *const lv2::LV2UIDescriptor;
+    // credits to ker on stackoverflow:
+    // http://stackoverflow.com/questions/31334356/static-struct-with
+    // -c-strings-for-lv2-plugin (duplicate) or http://stackoverflow.com/questions/
+    // 25880043/creating-a-static-c-struct-containing-strings
+
+    // Credits to Hanspeter Portner for explaining how to use ui:UI and kx:Widget:
+    // http://lists.lv2plug.in/pipermail/devel-lv2plug.in/2016-May/001649.html
+    let ptr: *const libc::c_char;
+    let desc: lv2::LV2UIDescriptor;
+    unsafe {
+        match index {
+            0 => {
+                ptr = SUI.as_ptr() as *const libc::c_char;
+                descUI.uri = ptr;
+                return &descUI as *const lv2::LV2UIDescriptor;
+
+            }
+            1 => {
+                ptr = SKX.as_ptr() as *const libc::c_char;
+                descKX.uri = ptr;
+                return &descKX as *const lv2::LV2UIDescriptor;
+            }
+            _ => return std::ptr::null(),
         }
     }
 }
@@ -127,14 +161,19 @@ pub extern "C" fn ui_idle(handle: lv2::LV2UIHandle) -> libc::c_int {
 }
 
 #[no_mangle]
+pub extern "C" fn ui_show(handle: lv2::LV2UIHandle) -> libc::c_int {
+    println!("host calls show()");
+    return 0i32 as libc::c_int;
+}
+
+#[no_mangle]
+pub extern "C" fn ui_hide(handle: lv2::LV2UIHandle) -> libc::c_int {
+    println!("host calls hide()");
+    return 0i32 as libc::c_int;
+}
+
+#[no_mangle]
 pub extern "C" fn ui_nullfunction(handle: lv2::LV2UIHandle) -> libc::c_int {
     println!("host calls ui_nullfunction()");
     return 0i32 as libc::c_int;
 }
-
-// #[link(name = "gtk-3")]
-// extern {
-//     // fn snappy_max_compressed_length(source_length: libc::size_t) -> libc::size_t;
-//     fn gtk_box_new(orient: libc::c_int, spacing: libc::c_int) -> *const libc::c_void;
-//     fn gtk_button_box_new(orient: libc::c_int) -> *const libc::c_void;
-// }
