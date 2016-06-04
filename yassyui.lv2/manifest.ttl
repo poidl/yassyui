@@ -19,11 +19,11 @@ kx:Host
 	
 <http://example.org/yassyui#ui>
 	a ui:UI ;
-	rdfs:seeAlso <yassyui.tt> ;
-	ui:binary <libyassyui.so> .
+	ui:binary <libyassyui.so> ;
+	rdfs:seeAlso <yassyui.ttl> .
 	
 <http://example.org/yassyui#kx>	
 	a kx:Widget ;
-	rdfs:seeAlso <yassyui.tt> ;
-	ui:binary <libyassyui.so> .
-	
+	ui:binary <libyassyui.so> ;
+	rdfs:seeAlso <yassyui.ttl> .
+		
