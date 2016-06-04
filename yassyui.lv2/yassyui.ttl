@@ -7,16 +7,6 @@
 @prefix kx:    <http://kxstudio.sf.net/ns/lv2ext/external-ui#> .
 @prefix owl:   <http://www.w3.org/2002/07/owl#> .
 
-# what is sord_validate? 
-# from: Hanspeter Portner
-# https://github.com/ventosus/customui.lv2/blob/master/manifest.ttl.in
-# to please sord_validate
-kx:Widget
-	a rdfs:Class, owl:Class ;
-	rdfs:subClassOf ui:UI .
-kx:Host
-	a lv2:Feature .
-
 <http://example.org/yassyui#ui>
 	a ui:UI ;
 	lv2:project <http://example.org> ;
