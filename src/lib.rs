@@ -30,7 +30,7 @@ impl Descriptor {
         let mut bx = Box::new(yassyui::yassyui::new());
         let uitype = unsafe { lv2::cstring((*descriptor).uri) };
         println!("UITYPE: {}", uitype);
-        if uitype == "http://example.org/yassyui#kx" {
+        if uitype == "http://example.org/yassy#kx" {
             println!("MAPPING FEATURE FOR: {}", uitype);
             let featureptr = lv2::mapfeature(features,
                                              "http://kxstudio.sf.net/ns/lv2ext/external-ui#Host");
@@ -72,7 +72,7 @@ impl Descriptor {
     }
 }
 
-static SUI: &'static [u8] = b"http://example.org/yassyui#ui\0";
+static SUI: &'static [u8] = b"http://example.org/yassy#ui\0";
 
 static mut descUI: lv2::LV2UIDescriptor = lv2::LV2UIDescriptor {
     uri: 0 as *const libc::c_char, // ptr::null() isn't const fn (yet)
@@ -82,7 +82,7 @@ static mut descUI: lv2::LV2UIDescriptor = lv2::LV2UIDescriptor {
     extension_data: Descriptor::extension_data,
 };
 
-static SKX: &'static [u8] = b"http://example.org/yassyui#kx\0";
+static SKX: &'static [u8] = b"http://example.org/yassy#kx\0";
 
 pub extern "C" fn nullfunction(arg: *const i8) -> *const libc::c_void {
     ptr::null()

@@ -7,25 +7,11 @@
 @prefix kx:    <http://kxstudio.sf.net/ns/lv2ext/external-ui#> .
 @prefix owl:   <http://www.w3.org/2002/07/owl#> .
 
-<http://example.org/yassyui#ui>
+<http://example.org/yassy#ui>
 	a ui:UI ;
-	lv2:project <http://example.org> ;
-	doap:name "yassy gui ui" ;
         lv2:requiredFeature ui:idleInterface ;
-        lv2:extensionData ui:idleInterface , ui:showInterface ;        
-        ui:portNotification [
-                ui:plugin <http://example.org/yassy> ;
-                lv2:symbol "gain" ;
-                ui:protocol ui:floatProtocol
-        ] .
-        
-<http://example.org/yassyui#kx>
+        lv2:extensionData ui:idleInterface , ui:showInterface .       
+ 
+<http://example.org/yassy#kx>
 	a kx:Widget ;
-	lv2:project <http://example.org> ;
-	doap:name "yassy gui kx" ;
-        lv2:requiredFeature kx:Host ;    
-        ui:portNotification [
-                ui:plugin <http://example.org/yassy> ;
-                lv2:symbol "gain" ;
-                ui:protocol ui:floatProtocol
-        ] .
+        lv2:requiredFeature kx:Host .  
