@@ -29,7 +29,7 @@ impl Descriptor {
                                   features: *const (*const lv2::LV2Feature))
                                   -> lv2::LV2UIHandle {
         println!("host calls instantiate()");
-        print_features(features);
+        lv2::print_features(features);
         let mut bx = Box::new(yassyui::yassyui::new());
 
         bx.controller = controller;
@@ -64,15 +64,21 @@ impl Descriptor {
                                  buffer_size: libc::c_uint,
                                  format: libc::c_uint,
                                  buffer: *const libc::c_void) {
-        println!("host calls port_event()")
+        println!("host calls port_event() on port_index: {}", port_index);
+
+        unsafe {
+            let hoit = *(buffer as *const libc::c_float);
+            println!("  buffer: {}", hoit);
+        }
+
     }
 
     pub extern "C" fn extension_data(uri: *const libc::c_char) -> *const libc::c_void {
         unsafe {
-            println!("Host calls extension_data:");
+            // println!("Host calls extension_data:");
             let buf = CStr::from_ptr(uri).to_bytes();
             let s: &str = str::from_utf8(buf).unwrap();
-            println!("   {}", s);
+            // println!("   {}", s);
             if s == "http://lv2plug.in/ns/extensions/ui#idleInterface" {
                 return &idleinterface as *const lv2::LV2UIIdleInterface as *const libc::c_void;
             } else if s == "http://lv2plug.in/ns/extensions/ui#showInterface" {
@@ -117,7 +123,8 @@ pub extern "C" fn lv2ui_descriptor(index: i32) -> *const lv2::LV2UIDescriptor {
     // -c-strings-for-lv2-plugin (duplicate) or http://stackoverflow.com/questions/
     // 25880043/creating-a-static-c-struct-containing-strings
 
-    // Credits to Hanspeter Portner for explaining how to use ui:UI and kx:Widget:
+    // Credits to Hanspeter Portner for explaining how to use ui:UI and
+    // kx:Widget:
     // http://lists.lv2plug.in/pipermail/devel-lv2plug.in/2016-May/001649.html
     let ptr: *const libc::c_char;
     let desc: lv2::LV2UIDescriptor;
@@ -127,7 +134,6 @@ pub extern "C" fn lv2ui_descriptor(index: i32) -> *const lv2::LV2UIDescriptor {
                 ptr = SUI.as_ptr() as *const libc::c_char;
                 descUI.uri = ptr;
                 return &descUI as *const lv2::LV2UIDescriptor;
-
             }
             1 => {
                 ptr = SKX.as_ptr() as *const libc::c_char;
@@ -141,43 +147,41 @@ pub extern "C" fn lv2ui_descriptor(index: i32) -> *const lv2::LV2UIDescriptor {
 
 #[no_mangle]
 pub extern "C" fn ui_idle(handle: lv2::LV2UIHandle) -> libc::c_int {
-    println!("host calls idle()");
+    // returns non-zero if the UI has been closed, in which case the host
+    // should stop calling idle(), and can either completely destroy the UI, or
+    // re-show it and resume calling idle().
+    // println!("host calls idle()");
     let ui = handle as *mut yassyui::yassyui;
     unsafe {
-        return (*ui).done as libc::c_int;
+        return !(*ui).showing as libc::c_int;
     }
-
 }
 
 #[no_mangle]
 pub extern "C" fn ui_show(handle: lv2::LV2UIHandle) -> libc::c_int {
+    // Show a window for this UI. Returns 0 on success, or anything else to
+    // stop being called. on success, or anything else to stop being called.
     println!("host calls show()");
     let ui = handle as *mut yassyui::yassyui;
     unsafe {
-        if (*ui).done == 0i32 {
-            return 0i32 as libc::c_int;
+        if (*ui).showing {
+            return 0i32 as libc::c_int; // already showing
         }
-
         println!("   do something in show()");
-        (*ui).done = 0;
-
+        (*ui).showing = true;
+        return 0i32 as libc::c_int;
     }
-    return 0i32 as libc::c_int;
 }
 
 #[no_mangle]
 pub extern "C" fn ui_hide(handle: lv2::LV2UIHandle) -> libc::c_int {
+    // Hide the window for this UI. Returns 0 on success, or anything else to
+    // stop being called. on success, or anything else to stop being called.
     println!("host calls hide()");
     let ui = handle as *mut yassyui::yassyui;
     unsafe {
-        (*ui).done = 1i32;
+        (*ui).showing = false;
     }
-    return 0i32 as libc::c_int;
-}
-
-#[no_mangle]
-pub extern "C" fn ui_nullfunction(handle: lv2::LV2UIHandle) -> libc::c_int {
-    println!("host calls ui_nullfunction()");
     return 0i32 as libc::c_int;
 }
 
@@ -192,7 +196,6 @@ pub extern "C" fn kx_run(exthandle: lv2::LV2UIExternalUIWidget) {
         unsafe {
             ((*(*ui).host).ui_closed)((*ui).controller);
         }
-
         ui_hide(widget);
     }
 }
@@ -208,41 +211,16 @@ pub extern "C" fn kx_show(exthandle: lv2::LV2UIExternalUIWidget) {
     let ui =
         &exthandle as *const lv2::LV2UIExternalUIWidget as lv2::LV2UIWidget as lv2::LV2UIHandle;
     ui_show(ui);
-
-    // let ui = handle as *mut yassyui::yassyui::widget;
 }
 
 #[no_mangle]
 pub extern "C" fn kx_hide(exthandle: lv2::LV2UIExternalUIWidget) {
     println!("host calls kx_hide()");
-    // // let ui = handle as *mut yassyui::yassyui;
     let uihandle =
         &exthandle as *const lv2::LV2UIExternalUIWidget as lv2::LV2UIWidget as lv2::LV2UIHandle;
     let ui = uihandle as *mut yassyui::yassyui;
     unsafe {
-        (*ui).done = 1i32;
+        (*ui).showing = false;
     }
-
     ui_hide(uihandle);
-
-}
-
-fn print_features(features: *const (*const lv2::LV2Feature)) {
-    // Print lv2 host features
-    let mut x: isize = 0;
-    unsafe {
-        loop {
-
-            let fptr: *const lv2::LV2Feature = *features.offset(x);
-            if fptr.is_null() {
-                println!("End of features");
-                break;
-            }
-            let uriptr = (*fptr).uri;
-            let buf = CStr::from_ptr(uriptr).to_bytes();
-            let s: &str = str::from_utf8(buf).unwrap();
-            println!("uri: {}", s);
-            x = x + 1;
-        }
-    }
 }

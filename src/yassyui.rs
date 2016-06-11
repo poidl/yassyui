@@ -7,7 +7,7 @@ pub struct yassyui {
     pub extwidget: lv2::LV2UIExternalUIWidget,
     pub host: *const lv2::LV2UIExternalUIHost,
     pub controller: lv2::LV2UIController,
-    pub done: i32,
+    pub showing: bool,
 }
 
 impl yassyui {
@@ -23,7 +23,7 @@ impl yassyui {
             },
             host: ptr::null(),
             controller: ptr::null(),
-            done: 0i32,
+            showing: false,
         }
     }
     pub fn hello(&self) {
