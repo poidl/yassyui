@@ -267,48 +267,58 @@ pub extern "C" fn ui_hide(handle: lv2::LV2UIHandle) -> libc::c_int {
 }
 
 #[no_mangle]
-pub extern "C" fn kx_run(exthandle: lv2::LV2UIExternalUIWidget) {
+pub extern "C" fn kx_run(exthandle: *const lv2::LV2UIExternalUIWidget) {
     println!("host calls kx_run()");
-    let uihandle =
-        &exthandle as *const lv2::LV2UIExternalUIWidget as lv2::LV2UIWidget as lv2::LV2UIHandle;
-    let widget = &exthandle as *const lv2::LV2UIExternalUIWidget as lv2::LV2UIWidget;
-    let ui = uihandle as *mut yassyui::yassyui;
-    println!("kkkkkkkkkkkf");
-    if ui_idle(widget) == 1i32 {
-        unsafe {
-            println!("ff1");
+    // let ptr = &exthandle as *const lv2::LV2UIExternalUIWidget;
+    let offset = get_offset();
+    unsafe {
+        let uihandle = (exthandle as lv2::LV2UIHandle).offset(offset);
+        let ui = uihandle as *mut yassyui::yassyui;
+        if ui_idle(uihandle) == 1i32 {
             // ui_closed: Callback that plugin UI will call when UI (GUI window) is closed by user.
             // This callback will be called during execution of LV2_External_UI_Widget::run()
             // (i.e. not from background thread).
             ((*(*ui).host).ui_closed)((*ui).controller);
-            println!("ff12");
+            ui_hide(uihandle);
         }
-        ui_hide(widget);
     }
-    println!("sdfsfsf");
 }
 
 #[no_mangle]
-pub extern "C" fn kx_show(exthandle: lv2::LV2UIExternalUIWidget) {
+pub extern "C" fn kx_show(exthandle: *const lv2::LV2UIExternalUIWidget) {
     println!("host calls kx_show()");
     // Why does this work?
     // Host keeps address lv2::LV2UIHandle of struct (*lv2::LV2UIHandle) that
     // contains an "extwidget" of type lv2::LV2UIExternalUIWidget
     // Host also keeps address of the lv2::LV2UIExternalUIWidget in its
     // *lv2::LV2UIWidget ("widget") set at instantiate()
-    let ui =
-        &exthandle as *const lv2::LV2UIExternalUIWidget as lv2::LV2UIWidget as lv2::LV2UIHandle;
-    ui_show(ui);
+
+    let offset = get_offset();
+    unsafe {
+        let uihandle = (exthandle as lv2::LV2UIHandle).offset(offset);
+        ui_show(uihandle);
+    }
 }
 
 #[no_mangle]
-pub extern "C" fn kx_hide(exthandle: lv2::LV2UIExternalUIWidget) {
+pub extern "C" fn kx_hide(exthandle: *const lv2::LV2UIExternalUIWidget) {
     println!("host calls kx_hide()");
-    let uihandle =
-        &exthandle as *const lv2::LV2UIExternalUIWidget as lv2::LV2UIWidget as lv2::LV2UIHandle;
-    let ui = uihandle as *mut yassyui::yassyui;
+    let offset = get_offset();
     unsafe {
+        let uihandle = (exthandle as lv2::LV2UIHandle).offset(offset);
+        let ui = uihandle as *mut yassyui::yassyui;
         (*ui).showing = false;
+        ui_hide(uihandle);
     }
-    ui_hide(uihandle);
+}
+
+fn get_offset() -> isize {
+    // compute offset in bytes between struct yassyui and member extwidget.
+    // needed for in the kx_* functions. AFAIK the only way to avoid this
+    // would be to make sure that extwidget is always the *first* member of
+    // yassyui, in which case the offset is zero
+    let ya = yassyui::yassyui::new();
+    let uiptr = &ya as *const yassyui::yassyui as isize;
+    let extptr = &ya.extwidget as *const lv2::LV2UIExternalUIWidget as isize;
+    uiptr - extptr
 }

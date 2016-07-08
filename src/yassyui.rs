@@ -6,11 +6,10 @@ use std::net::TcpListener;
 
 #[repr(C)]
 pub struct yassyui {
-    pub extwidget: lv2::LV2UIExternalUIWidget,
     pub host: *const lv2::LV2UIExternalUIHost,
     pub controller: lv2::LV2UIController,
-    pub showing: bool,
-    pub tcplistener: TcpListener,
+    pub extwidget: lv2::LV2UIExternalUIWidget,
+    pub showing: bool, // pub tcplistener: TcpListener,
 }
 
 impl yassyui {
@@ -26,8 +25,7 @@ impl yassyui {
             },
             host: ptr::null(),
             controller: ptr::null(),
-            showing: false,
-            tcplistener: TcpListener::bind("127.0.0.1:2794").unwrap(),
+            showing: false, // tcplistener: TcpListener::bind("127.0.0.1:2794").unwrap(),
         };
         ui
     }
