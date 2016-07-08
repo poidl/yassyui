@@ -4,6 +4,9 @@
 
 extern crate libc;
 extern crate lv2;
+extern crate websocket;
+
+
 
 mod yassyui;
 use std::mem;
@@ -11,6 +14,16 @@ use std::ffi::CStr;
 use std::str;
 use std::ptr;
 
+use websocket::{Server, Message, Sender, Receiver};
+// use websocket::server::Connection;
+use websocket::server::request::Request;
+use websocket::server::response::Response;
+use websocket::message::Type;
+use websocket::header::WebSocketProtocol;
+use websocket::stream::WebSocketStream;
+use std::net::TcpStream;
+use std::io;
+use std::io::{Read, Write};
 // Credits to Hanspeter Portner for explaining how ui:UI and kx:Widget work. See
 // http://lists.lv2plug.in/pipermail/devel-lv2plug.in/2016-May/001649.html
 
@@ -50,6 +63,74 @@ impl Descriptor {
                 *widget = &mut bx.extwidget as *mut lv2::LV2UIExternalUIWidget as lv2::LV2UIWidget
             }
         }
+
+        // let result = bx.tcplistener.accept();
+        // // let tcpstream = std::net::TcpStream;
+        // match result {
+        //     Ok(s) => {
+        //         let tcpstream = s.0;
+        //         let wsstream = WebSocketStream::Tcp(tcpstream);
+        //         pub struct Connection<R: Read, W: Write>(R, W);
+        //         let connection = Connection(wsstream.try_clone().unwrap(),
+        //                                     wsstream.try_clone().unwrap());
+
+        //         std::thread::spawn(move || {
+        //             // let request = connection.read_request().unwrap(); // Get the request
+        //             let request = Request::read(connection.0, connection.1).unwrap();
+        //             let headers = request.headers.clone(); // Keep the headers so we can check them
+
+        //             request.validate().unwrap(); // Validate the request
+
+        //             let mut response = request.accept(); // Form a response
+
+        //             if let Some(&WebSocketProtocol(ref protocols)) = headers.get() {
+        //                 if protocols.contains(&("rust-websocket".to_string())) {
+        //                     // We have a protocol we want to use
+        //                     response.headers
+        //                         .set(WebSocketProtocol(vec!["rust-websocket".to_string()]));
+        //                 }
+        //             }
+
+        //             let mut client = response.send().unwrap(); // Send the response
+
+        //             let ip = client.get_mut_sender()
+        //                 .get_mut()
+        //                 .peer_addr()
+        //                 .unwrap();
+
+        //             println!("Connection from {}", ip);
+
+        //             let message: Message = Message::text("Hello".to_string());
+        //             client.send_message(&message).unwrap();
+
+        //             let (mut sender, mut receiver) = client.split();
+
+        //             for message in receiver.incoming_messages() {
+        //                 let message: Message = message.unwrap();
+
+        //                 match message.opcode {
+        //                     Type::Close => {
+        //                         let message = Message::close();
+        //                         sender.send_message(&message).unwrap();
+        //                         println!("Client {} disconnected", ip);
+        //                         return;
+        //                     }
+        //                     Type::Ping => {
+        //                         let message = Message::pong(message.payload);
+        //                         sender.send_message(&message).unwrap();
+        //                     }
+        //                     _ => sender.send_message(&message).unwrap(),
+        //                 }
+        //             }
+        //         });
+        //     }
+        //     _ => println!("error"),
+        // };
+
+        // let five = std::time::Duration::new(5, 0);
+        // loop {
+        //     std::thread::sleep(five);
+        // }
         let ptr = (&*bx as *const yassyui::yassyui) as *mut libc::c_void;
         mem::forget(bx);
         ptr
@@ -192,12 +273,19 @@ pub extern "C" fn kx_run(exthandle: lv2::LV2UIExternalUIWidget) {
         &exthandle as *const lv2::LV2UIExternalUIWidget as lv2::LV2UIWidget as lv2::LV2UIHandle;
     let widget = &exthandle as *const lv2::LV2UIExternalUIWidget as lv2::LV2UIWidget;
     let ui = uihandle as *mut yassyui::yassyui;
+    println!("kkkkkkkkkkkf");
     if ui_idle(widget) == 1i32 {
         unsafe {
+            println!("ff1");
+            // ui_closed: Callback that plugin UI will call when UI (GUI window) is closed by user.
+            // This callback will be called during execution of LV2_External_UI_Widget::run()
+            // (i.e. not from background thread).
             ((*(*ui).host).ui_closed)((*ui).controller);
+            println!("ff12");
         }
         ui_hide(widget);
     }
+    println!("sdfsfsf");
 }
 
 #[no_mangle]

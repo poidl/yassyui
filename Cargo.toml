@@ -6,6 +6,7 @@ authors = ["poidl <hoitaus@gmail.com>"]
 [dependencies]
 libc = "*"
 lv2 = { path = "../lv2" }
+websocket = "*"
 
 [lib]
 name = "yassyui"

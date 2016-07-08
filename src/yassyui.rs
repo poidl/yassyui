@@ -1,6 +1,8 @@
 use libc;
 use lv2;
 use std::ptr;
+// use websocket::Server;
+use std::net::TcpListener;
 
 #[repr(C)]
 pub struct yassyui {
@@ -8,11 +10,12 @@ pub struct yassyui {
     pub host: *const lv2::LV2UIExternalUIHost,
     pub controller: lv2::LV2UIController,
     pub showing: bool,
+    pub tcplistener: TcpListener,
 }
 
 impl yassyui {
     pub fn new() -> yassyui {
-        yassyui {
+        let ui = yassyui {
             extwidget: lv2::LV2UIExternalUIWidget {
                 // Why "None"? Nullable function pointers. See
                 // https://doc.rust-lang.org/book/ffi.html
@@ -24,7 +27,9 @@ impl yassyui {
             host: ptr::null(),
             controller: ptr::null(),
             showing: false,
-        }
+            tcplistener: TcpListener::bind("127.0.0.1:2794").unwrap(),
+        };
+        ui
     }
     pub fn hello(&self) {
         println!("Hello", );
