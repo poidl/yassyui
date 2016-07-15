@@ -24,6 +24,10 @@ use websocket::stream::WebSocketStream;
 use std::net::TcpStream;
 use std::io;
 use std::io::{Read, Write};
+use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
+use std::net::TcpListener;
+
 // Credits to Hanspeter Portner for explaining how ui:UI and kx:Widget work. See
 // http://lists.lv2plug.in/pipermail/devel-lv2plug.in/2016-May/001649.html
 
@@ -63,74 +67,75 @@ impl Descriptor {
                 *widget = &mut bx.extwidget as *mut lv2::LV2UIExternalUIWidget as lv2::LV2UIWidget
             }
         }
+        // let mut data = Arc::new(Mutex::new(1f32));
+        // let (tx, rx) = mpsc::channel::<f32>();
+        let tcplistener = TcpListener::bind("127.0.0.1:2794").unwrap(); // pub sender: mpsc::Sender<f32>,
+        let result = tcplistener.accept();
+        // let tcpstream = std::net::TcpStream;
+        match result {
+            Ok(s) => {
+                let tcpstream = s.0;
+                let wsstream = WebSocketStream::Tcp(tcpstream);
+                pub struct Connection<R: Read, W: Write>(R, W);
+                let connection = Connection(wsstream.try_clone().unwrap(),
+                                            wsstream.try_clone().unwrap());
+                // let data = data.clone();
+                std::thread::spawn(move || {
 
-        // let result = bx.tcplistener.accept();
-        // // let tcpstream = std::net::TcpStream;
-        // match result {
-        //     Ok(s) => {
-        //         let tcpstream = s.0;
-        //         let wsstream = WebSocketStream::Tcp(tcpstream);
-        //         pub struct Connection<R: Read, W: Write>(R, W);
-        //         let connection = Connection(wsstream.try_clone().unwrap(),
-        //                                     wsstream.try_clone().unwrap());
+                    let request = Request::read(connection.0, connection.1).unwrap();
+                    let headers = request.headers.clone(); // Keep the headers so we can check them
 
-        //         std::thread::spawn(move || {
-        //             // let request = connection.read_request().unwrap(); // Get the request
-        //             let request = Request::read(connection.0, connection.1).unwrap();
-        //             let headers = request.headers.clone(); // Keep the headers so we can check them
+                    request.validate().unwrap(); // Validate the request
 
-        //             request.validate().unwrap(); // Validate the request
+                    let mut response = request.accept(); // Form a response
 
-        //             let mut response = request.accept(); // Form a response
+                    if let Some(&WebSocketProtocol(ref protocols)) = headers.get() {
+                        if protocols.contains(&("rust-websocket".to_string())) {
+                            // We have a protocol we want to use
+                            response.headers
+                                .set(WebSocketProtocol(vec!["rust-websocket".to_string()]));
+                        }
+                    }
 
-        //             if let Some(&WebSocketProtocol(ref protocols)) = headers.get() {
-        //                 if protocols.contains(&("rust-websocket".to_string())) {
-        //                     // We have a protocol we want to use
-        //                     response.headers
-        //                         .set(WebSocketProtocol(vec!["rust-websocket".to_string()]));
-        //                 }
-        //             }
+                    let mut client = response.send().unwrap(); // Send the response
 
-        //             let mut client = response.send().unwrap(); // Send the response
+                    let ip = client.get_mut_sender()
+                        .get_mut()
+                        .peer_addr()
+                        .unwrap();
 
-        //             let ip = client.get_mut_sender()
-        //                 .get_mut()
-        //                 .peer_addr()
-        //                 .unwrap();
+                    println!("Connection from {}", ip);
 
-        //             println!("Connection from {}", ip);
+                    let message: Message = Message::text("Hello".to_string());
+                    client.send_message(&message).unwrap();
 
-        //             let message: Message = Message::text("Hello".to_string());
-        //             client.send_message(&message).unwrap();
+                    let (mut sender, mut receiver) = client.split();
+                    // let (tx, rx) = channel();
+                    // loop {
+                    //     rx.recv().unwrap();
+                    // }
+                    for message in receiver.incoming_messages() {
+                        let message: Message = message.unwrap();
 
-        //             let (mut sender, mut receiver) = client.split();
+                        match message.opcode {
+                            Type::Close => {
+                                let message = Message::close();
+                                sender.send_message(&message).unwrap();
+                                println!("Client {} disconnected", ip);
+                                return;
+                            }
+                            Type::Ping => {
+                                let message = Message::pong(message.payload);
+                                sender.send_message(&message).unwrap();
+                            }
+                            _ => sender.send_message(&message).unwrap(),
+                        }
+                    }
+                });
+            }
+            _ => println!("error"),
+        };
 
-        //             for message in receiver.incoming_messages() {
-        //                 let message: Message = message.unwrap();
-
-        //                 match message.opcode {
-        //                     Type::Close => {
-        //                         let message = Message::close();
-        //                         sender.send_message(&message).unwrap();
-        //                         println!("Client {} disconnected", ip);
-        //                         return;
-        //                     }
-        //                     Type::Ping => {
-        //                         let message = Message::pong(message.payload);
-        //                         sender.send_message(&message).unwrap();
-        //                     }
-        //                     _ => sender.send_message(&message).unwrap(),
-        //                 }
-        //             }
-        //         });
-        //     }
-        //     _ => println!("error"),
-        // };
-
-        // let five = std::time::Duration::new(5, 0);
-        // loop {
-        //     std::thread::sleep(five);
-        // }
         let ptr = (&*bx as *const yassyui::yassyui) as *mut libc::c_void;
         mem::forget(bx);
         ptr
@@ -268,8 +273,9 @@ pub extern "C" fn ui_hide(handle: lv2::LV2UIHandle) -> libc::c_int {
 
 #[no_mangle]
 pub extern "C" fn kx_run(exthandle: *const lv2::LV2UIExternalUIWidget) {
+    // Host calls this function regulary. UI library implementing the
+    // callback may do IPC or redraw the UI.
     println!("host calls kx_run()");
-    // let ptr = &exthandle as *const lv2::LV2UIExternalUIWidget;
     let offset = get_offset();
     unsafe {
         let uihandle = (exthandle as lv2::LV2UIHandle).offset(offset);
@@ -287,12 +293,6 @@ pub extern "C" fn kx_run(exthandle: *const lv2::LV2UIExternalUIWidget) {
 #[no_mangle]
 pub extern "C" fn kx_show(exthandle: *const lv2::LV2UIExternalUIWidget) {
     println!("host calls kx_show()");
-    // Why does this work?
-    // Host keeps address lv2::LV2UIHandle of struct (*lv2::LV2UIHandle) that
-    // contains an "extwidget" of type lv2::LV2UIExternalUIWidget
-    // Host also keeps address of the lv2::LV2UIExternalUIWidget in its
-    // *lv2::LV2UIWidget ("widget") set at instantiate()
-
     let offset = get_offset();
     unsafe {
         let uihandle = (exthandle as lv2::LV2UIHandle).offset(offset);

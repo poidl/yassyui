@@ -1,8 +1,9 @@
 use libc;
 use lv2;
 use std::ptr;
-// use websocket::Server;
-use std::net::TcpListener;
+use websocket::Server;
+// use std::net::TcpListener;
+use std::sync::mpsc;
 
 #[repr(C)]
 pub struct yassyui {
@@ -14,6 +15,8 @@ pub struct yassyui {
 
 impl yassyui {
     pub fn new() -> yassyui {
+        // println!("address: {}", ipaddr);
+        // let (tx, rx) = mpsc::channel();
         let ui = yassyui {
             extwidget: lv2::LV2UIExternalUIWidget {
                 // Why "None"? Nullable function pointers. See
@@ -25,7 +28,7 @@ impl yassyui {
             },
             host: ptr::null(),
             controller: ptr::null(),
-            showing: false, // tcplistener: TcpListener::bind("127.0.0.1:2794").unwrap(),
+            showing: false, // tcplistener: TcpListener::bind("127.0.0.1:2794").unwrap()
         };
         ui
     }
