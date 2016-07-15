@@ -10,6 +10,7 @@ use std::sync::mpsc;
 pub struct yassyui {
     pub host: *const lv2::LV2UIExternalUIHost,
     pub controller: lv2::LV2UIController,
+    pub write: lv2::LV2UIWriteFunction,
     pub extwidget: lv2::LV2UIExternalUIWidget,
     pub showing: bool,
     // pub tcplistener: TcpListener,
@@ -31,6 +32,7 @@ impl yassyui {
             },
             host: ptr::null(),
             controller: ptr::null(),
+            write: None,
             showing: false, /* tcplistener: TcpListener::bind("127.0.0.1:2794").unwrap()
                              * sender: tx, */
             sender: tx,

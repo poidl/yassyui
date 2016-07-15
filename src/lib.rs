@@ -50,6 +50,7 @@ impl Descriptor {
         let mut bx = Box::new(yassyui::yassyui::new());
 
         bx.controller = controller;
+        bx.write = write_function;
         let uitype = unsafe { lv2::cstring((*descriptor).uri) };
         println!("UITYPE: {}", uitype);
         if uitype == "http://example.org/yassyui#kx" {
@@ -95,8 +96,7 @@ impl Descriptor {
                             }
                         };
                         println!("val: {}", val);
-                        let message: Message = Message::text("mesage****:".to_string() +
-                                                             &val.to_string());
+                        let message: Message = Message::text(val.to_string());
                         tx_1.send(message);
                     }
                 });
@@ -215,7 +215,13 @@ impl Descriptor {
                                 }
                             }
                             // Say what we received
-                            _ => println!("Receive Loop: {:?}", message),
+                            _ => {
+                                let vecu8 = message.payload.into_owned();
+                                let mess = String::from_utf8(vecu8).unwrap();
+                                println!("Receive Loop: {:?}", mess);
+
+                            }
+                            // myfunc(message.payload,./
                         }
                     }
                 });
