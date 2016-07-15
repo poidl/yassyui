@@ -79,7 +79,27 @@ impl Descriptor {
                 pub struct Connection<R: Read, W: Write>(R, W);
                 let connection = Connection(wsstream.try_clone().unwrap(),
                                             wsstream.try_clone().unwrap());
+
+                let (tx, rx_and_send_to_br) = mpsc::channel();
+                let tx_1 = tx.clone();
+                let (tx_2, rx_and_send_to_send) = mpsc::channel();
+                bx.sender = tx_2;
                 // let data = data.clone();
+                std::thread::spawn(move || {
+                    loop {
+                        let val: f32 = match rx_and_send_to_send.recv() {
+                            Ok(v) => v,
+                            Err(e) => {
+                                println!("Oeha: {:?}", e);
+                                return;
+                            }
+                        };
+                        println!("val: {}", val);
+                        let message: Message = Message::text("mesage****:".to_string() +
+                                                             &val.to_string());
+                        tx_1.send(message);
+                    }
+                });
                 std::thread::spawn(move || {
 
                     let request = Request::read(connection.0, connection.1).unwrap();
@@ -110,25 +130,92 @@ impl Descriptor {
                     client.send_message(&message).unwrap();
 
                     let (mut sender, mut receiver) = client.split();
-                    // let (tx, rx) = channel();
-                    // loop {
-                    //     rx.recv().unwrap();
-                    // }
+                    // send to browser
+                    let send_loop = std::thread::spawn(move || {
+                        loop {
+                            // Send loop
+                            println!("send loop");
+                            let message: Message = match rx_and_send_to_br.recv() {
+                                Ok(m) => m,
+                                Err(e) => {
+                                    println!("Send Loop: {:?}", e);
+                                    return;
+                                }
+                            };
+                            match message.opcode {
+                                Type::Close => {
+                                    let _ = sender.send_message(&message);
+                                    // If it's a close message, just send it and then return.
+                                    return;
+                                }
+                                _ => (),
+                            }
+                            // Send the message
+                            match sender.send_message(&message) {
+                                Ok(()) => (),
+                                Err(e) => {
+                                    println!("Send Loop: {:?}", e);
+                                    let _ = sender.send_message(&Message::close());
+                                    return;
+                                }
+                            }
+                        }
+                    });
+                    // // receive from ui thread
+                    // let receive_loop = std::thread::spawn(move || {
+                    //     // Receive loop
+                    //     for message in receiver.incoming_messages() {
+                    //         let message: Message = match message {
+                    //             Ok(m) => m,
+                    //             Err(e) => {
+                    //                 println!("Receive Loop: {:?}", e);
+                    //                 let _ = tx_1.send(Message::close());
+                    //                 return;
+                    //             }
+                    //         };
+                    //         match message.opcode {
+                    //             Type::Close => {
+                    //                 // Got a close message, so send a close message and return
+                    //                 let _ = tx_1.send(Message::close());
+                    //                 return;
+                    //             }
+                    //             Type::Ping => {
+                    //                 match tx_1.send(Message::pong(message.payload)) {
+                    //                     // Send a pong in response
+                    //                     Ok(()) => (),
+                    //                     Err(e) => {
+                    //                         println!("Receive Loop: {:?}", e);
+                    //                         return;
+                    //                     }
+                    //                 }
+                    //             }
+                    //             // Say what we received
+                    //             _ => println!("Receive Loop: {:?}", message),
+                    //         }
+                    //     }
+                    // });
+                    // receive from browser
                     for message in receiver.incoming_messages() {
                         let message: Message = message.unwrap();
 
                         match message.opcode {
                             Type::Close => {
-                                let message = Message::close();
-                                sender.send_message(&message).unwrap();
-                                println!("Client {} disconnected", ip);
+                                // Got a close message, so send a close message and return
+                                let _ = tx.send(Message::close());
                                 return;
                             }
                             Type::Ping => {
-                                let message = Message::pong(message.payload);
-                                sender.send_message(&message).unwrap();
+                                match tx.send(Message::pong(message.payload)) {
+                                    // Send a pong in response
+                                    Ok(()) => (),
+                                    Err(e) => {
+                                        println!("Receive Loop: {:?}", e);
+                                        return;
+                                    }
+                                }
                             }
-                            _ => sender.send_message(&message).unwrap(),
+                            // Say what we received
+                            _ => println!("Receive Loop: {:?}", message),
                         }
                     }
                 });
@@ -155,6 +242,8 @@ impl Descriptor {
         unsafe {
             let hoit = *(buffer as *const libc::c_float);
             println!("  buffer: {}", hoit);
+            let yas = ui as *mut yassyui::yassyui;
+            (*yas).sender.send(hoit as f32);
         }
 
     }
