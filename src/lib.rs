@@ -84,7 +84,9 @@ impl Descriptor {
                 let (tx, rx_and_send_to_br) = mpsc::channel();
                 let tx_1 = tx.clone();
                 let (tx_2, rx_and_send_to_send) = mpsc::channel();
+                // let (tx_3, rx)
                 bx.sender = tx_2;
+                // bx.receiver = rx;
                 // let data = data.clone();
                 std::thread::spawn(move || {
                     loop {
@@ -100,131 +102,112 @@ impl Descriptor {
                         tx_1.send(message);
                     }
                 });
-                std::thread::spawn(move || {
+                unsafe {
+                    // unsafe following line works around calling on_ws_receive()
+                    // with raw pointer (raw opinters are not "send")
+                    // TODO: dangerous?
+                    let ctrl = &*(controller as *const i64);
+                    std::thread::spawn(move || {
 
-                    let request = Request::read(connection.0, connection.1).unwrap();
-                    let headers = request.headers.clone(); // Keep the headers so we can check them
+                        let request = Request::read(connection.0, connection.1).unwrap();
+                        let headers = request.headers.clone(); // Keep the headers so we can check them
 
-                    request.validate().unwrap(); // Validate the request
+                        request.validate().unwrap(); // Validate the request
 
-                    let mut response = request.accept(); // Form a response
+                        let mut response = request.accept(); // Form a response
 
-                    if let Some(&WebSocketProtocol(ref protocols)) = headers.get() {
-                        if protocols.contains(&("rust-websocket".to_string())) {
-                            // We have a protocol we want to use
-                            response.headers
-                                .set(WebSocketProtocol(vec!["rust-websocket".to_string()]));
-                        }
-                    }
-
-                    let mut client = response.send().unwrap(); // Send the response
-
-                    let ip = client.get_mut_sender()
-                        .get_mut()
-                        .peer_addr()
-                        .unwrap();
-
-                    println!("Connection from {}", ip);
-
-                    let message: Message = Message::text("Hello".to_string());
-                    client.send_message(&message).unwrap();
-
-                    let (mut sender, mut receiver) = client.split();
-                    // send to browser
-                    let send_loop = std::thread::spawn(move || {
-                        loop {
-                            // Send loop
-                            println!("send loop");
-                            let message: Message = match rx_and_send_to_br.recv() {
-                                Ok(m) => m,
-                                Err(e) => {
-                                    println!("Send Loop: {:?}", e);
-                                    return;
-                                }
-                            };
-                            match message.opcode {
-                                Type::Close => {
-                                    let _ = sender.send_message(&message);
-                                    // If it's a close message, just send it and then return.
-                                    return;
-                                }
-                                _ => (),
-                            }
-                            // Send the message
-                            match sender.send_message(&message) {
-                                Ok(()) => (),
-                                Err(e) => {
-                                    println!("Send Loop: {:?}", e);
-                                    let _ = sender.send_message(&Message::close());
-                                    return;
-                                }
+                        if let Some(&WebSocketProtocol(ref protocols)) = headers.get() {
+                            if protocols.contains(&("rust-websocket".to_string())) {
+                                // We have a protocol we want to use
+                                response.headers
+                                    .set(WebSocketProtocol(vec!["rust-websocket".to_string()]));
                             }
                         }
-                    });
-                    // // receive from ui thread
-                    // let receive_loop = std::thread::spawn(move || {
-                    //     // Receive loop
-                    //     for message in receiver.incoming_messages() {
-                    //         let message: Message = match message {
-                    //             Ok(m) => m,
-                    //             Err(e) => {
-                    //                 println!("Receive Loop: {:?}", e);
-                    //                 let _ = tx_1.send(Message::close());
-                    //                 return;
-                    //             }
-                    //         };
-                    //         match message.opcode {
-                    //             Type::Close => {
-                    //                 // Got a close message, so send a close message and return
-                    //                 let _ = tx_1.send(Message::close());
-                    //                 return;
-                    //             }
-                    //             Type::Ping => {
-                    //                 match tx_1.send(Message::pong(message.payload)) {
-                    //                     // Send a pong in response
-                    //                     Ok(()) => (),
-                    //                     Err(e) => {
-                    //                         println!("Receive Loop: {:?}", e);
-                    //                         return;
-                    //                     }
-                    //                 }
-                    //             }
-                    //             // Say what we received
-                    //             _ => println!("Receive Loop: {:?}", message),
-                    //         }
-                    //     }
-                    // });
-                    // receive from browser
-                    for message in receiver.incoming_messages() {
-                        let message: Message = message.unwrap();
 
-                        match message.opcode {
-                            Type::Close => {
-                                // Got a close message, so send a close message and return
-                                let _ = tx.send(Message::close());
-                                return;
-                            }
-                            Type::Ping => {
-                                match tx.send(Message::pong(message.payload)) {
-                                    // Send a pong in response
+                        let mut client = response.send().unwrap(); // Send the response
+
+                        let ip = client.get_mut_sender()
+                            .get_mut()
+                            .peer_addr()
+                            .unwrap();
+
+                        println!("Connection from {}", ip);
+
+                        let message: Message = Message::text("Hello".to_string());
+                        client.send_message(&message).unwrap();
+
+                        let (mut sender, mut receiver) = client.split();
+                        // send to browser
+                        let send_loop = std::thread::spawn(move || {
+                            loop {
+                                // Send loop
+                                println!("send loop");
+                                let message: Message = match rx_and_send_to_br.recv() {
+                                    Ok(m) => m,
+                                    Err(e) => {
+                                        println!("Send Loop: {:?}", e);
+                                        return;
+                                    }
+                                };
+                                match message.opcode {
+                                    Type::Close => {
+                                        let _ = sender.send_message(&message);
+                                        // If it's a close message, just send it and then return.
+                                        return;
+                                    }
+                                    _ => (),
+                                }
+                                // Send the message
+                                match sender.send_message(&message) {
                                     Ok(()) => (),
                                     Err(e) => {
-                                        println!("Receive Loop: {:?}", e);
+                                        println!("Send Loop: {:?}", e);
+                                        let _ = sender.send_message(&Message::close());
                                         return;
                                     }
                                 }
                             }
-                            // Say what we received
-                            _ => {
-                                let vecu8 = message.payload.into_owned();
-                                let mess = String::from_utf8(vecu8).unwrap();
-                                println!("Receive Loop: {:?}", mess);
+                        });
 
+                        // receive from browser
+                        for message in receiver.incoming_messages() {
+                            let message: Message = message.unwrap();
+
+                            match message.opcode {
+                                Type::Close => {
+                                    // Got a close message, so send a close message and return
+                                    let _ = tx.send(Message::close());
+                                    return;
+                                }
+                                Type::Ping => {
+                                    match tx.send(Message::pong(message.payload)) {
+                                        // Send a pong in response
+                                        Ok(()) => (),
+                                        Err(e) => {
+                                            println!("Receive Loop: {:?}", e);
+                                            return;
+                                        }
+                                    }
+                                }
+                                // Say what we received
+                                _ => {
+                                    let vecu8 = message.payload.into_owned();
+                                    let mess = String::from_utf8(vecu8).unwrap();
+                                    let myfloat = mess.parse::<f32>();
+                                    println!("Receive Loop: {:?}", myfloat);
+                                    match myfloat {
+                                        Ok(f) => {
+                                            on_ws_receive(write_function, ctrl, &f);
+                                        }
+                                        Err(err) => println!("Err: {}", err),
+                                    }
+
+
+                                }
                             }
-                            // myfunc(message.payload,./
                         }
-                    }
-                });
+                    });
+                }//unsafe
             }
             _ => println!("error"),
         };
@@ -268,6 +251,15 @@ impl Descriptor {
 
             ptr::null() as *const libc::c_void
         }
+    }
+}
+
+fn on_ws_receive(write: lv2::LV2UIWriteFunction, controller: &i64, f: &f32) {
+
+    let ctrl = controller as *const i64 as lv2::LV2UIController;
+    if let Some(ref func) = write {
+        (*func)(ctrl, 2, 4, 0, f as *const f32 as *const libc::c_void);
+        println!("bla");
     }
 }
 

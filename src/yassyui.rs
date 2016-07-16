@@ -15,6 +15,7 @@ pub struct yassyui {
     pub showing: bool,
     // pub tcplistener: TcpListener,
     pub sender: mpsc::Sender<f32>,
+    pub receiver: mpsc::Receiver<f32>,
 }
 
 impl yassyui {
@@ -36,10 +37,11 @@ impl yassyui {
             showing: false, /* tcplistener: TcpListener::bind("127.0.0.1:2794").unwrap()
                              * sender: tx, */
             sender: tx,
+            receiver: rx,
         };
         ui
     }
-    pub fn hello(&self) {
-        println!("Hello", );
-    }
+    // pub fn receive(&self, val: f32) {
+    //     println!("Hello", );
+    // }
 }
