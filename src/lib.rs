@@ -69,7 +69,7 @@ impl Descriptor {
             }
         }
 
-        bx.connect(write_function,controller);
+        bx.connect(write_function, controller);
         let ptr = (&*bx as *const yassyui::yassyui) as *mut libc::c_void;
         mem::forget(bx);
         ptr
