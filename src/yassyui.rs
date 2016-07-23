@@ -2,25 +2,18 @@ use libc;
 use lv2;
 use std::ptr;
 use std::thread;
-use websocket::Server;
-// use std::net::TcpListener;
 use std::sync::mpsc;
 use websocket::{Message, Sender, Receiver};
 
 // use websocket::{Server, Message, Sender, Receiver};
 // use websocket::server::Connection;
 use websocket::server::request::Request;
-use websocket::server::response::Response;
 use websocket::client;
 // use websocket::client::*;
 use websocket::message::Type;
 use websocket::header::WebSocketProtocol;
 use websocket::stream::WebSocketStream;
-use std::net::TcpStream;
-use std::io;
 use std::io::{Read, Write};
-use std::sync::{Arc, Mutex};
-// use std::sync::mpsc;
 use std::net::TcpListener;
 
 #[repr(C)]
@@ -161,7 +154,7 @@ fn param_as_message_to_sendloop(tx: mpsc::Sender<Message>, rx: mpsc::Receiver<f3
         };
         println!("val: {}", val);
         let message: Message = Message::text(val.to_string());
-        tx.send(message);
+        tx.send(message).unwrap();
     }
 }
 

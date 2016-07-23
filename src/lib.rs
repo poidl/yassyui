@@ -1,32 +1,12 @@
-#![allow(unused_imports)]
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
 extern crate libc;
 extern crate lv2;
 extern crate websocket;
-
-
 
 mod yassyui;
 use std::mem;
 use std::ffi::CStr;
 use std::str;
 use std::ptr;
-
-use websocket::{Server, Message, Sender, Receiver};
-// use websocket::server::Connection;
-use websocket::server::request::Request;
-use websocket::server::response::Response;
-use websocket::message::Type;
-use websocket::header::WebSocketProtocol;
-use websocket::stream::WebSocketStream;
-use std::net::TcpStream;
-use std::io;
-use std::io::{Read, Write};
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc;
-use std::net::TcpListener;
 
 // Credits to Hanspeter Portner for explaining how ui:UI and kx:Widget work. See
 // http://lists.lv2plug.in/pipermail/devel-lv2plug.in/2016-May/001649.html
@@ -38,8 +18,8 @@ struct Descriptor(lv2::LV2UIDescriptor);
 
 impl Descriptor {
     pub extern "C" fn instantiate(descriptor: *const lv2::LV2UIDescriptor,
-                                  plugin_uri: *const libc::c_char,
-                                  bundle_path: *const libc::c_char,
+                                  _plugin_uri: *const libc::c_char,
+                                  _bundle_path: *const libc::c_char,
                                   write_function: lv2::LV2UIWriteFunction,
                                   controller: lv2::LV2UIController,
                                   widget: *mut lv2::LV2UIWidget,
@@ -75,14 +55,14 @@ impl Descriptor {
         ptr
     }
 
-    pub extern "C" fn cleanup(handle: lv2::LV2UIHandle) {
+    pub extern "C" fn cleanup(_handle: lv2::LV2UIHandle) {
         println!("host calls cleanup()");
     }
 
     pub extern "C" fn port_event(ui: lv2::LV2UIHandle,
                                  port_index: libc::c_uint,
-                                 buffer_size: libc::c_uint,
-                                 format: libc::c_uint,
+                                 _buffer_size: libc::c_uint,
+                                 _format: libc::c_uint,
                                  buffer: *const libc::c_void) {
         println!("host calls port_event() on port_index: {}", port_index);
 
@@ -90,7 +70,7 @@ impl Descriptor {
             let hoit = *(buffer as *const libc::c_float);
             println!("  buffer: {}", hoit);
             let yas = ui as *mut yassyui::yassyui;
-            (*yas).sender.send(hoit as f32);
+            (*yas).sender.send(hoit as f32).unwrap();
         }
 
     }
@@ -149,7 +129,6 @@ pub extern "C" fn lv2ui_descriptor(index: i32) -> *const lv2::LV2UIDescriptor {
     // kx:Widget:
     // http://lists.lv2plug.in/pipermail/devel-lv2plug.in/2016-May/001649.html
     let ptr: *const libc::c_char;
-    let desc: lv2::LV2UIDescriptor;
     unsafe {
         match index {
             0 => {
